@@ -3,8 +3,8 @@ from django.http import HttpResponse
 from rest_framework import generics
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from .models import  QuotationData,QuotationTemplate,Permissions,TextMessage,EmailAttachment,Lead,MeetingStatusChangeLog,StatusChangeLog, BasicActivityInformation,EmailTemplate, EmailSpecificFields, Meeting,LeadStatus,SMS
-from .serializers import QuotationDataSerializer,QuotationTemplateSerializer,PermissionsSerializer,TextMessageSerializer,EmailAttachmentSerializer,LeadStatusSerializer,MeetingStatusserializer,UserSerializer,StatusChangeLogSerializer, MyTokenObtainPairSerializer, LeadSerializer, BasicActivityInformationSerializer,EmailTemplateSerializer, EmailSpecificFieldsSerializer, MeetingSerializer
+from .models import  QuotationData,Permissions,TextMessage,EmailAttachment,Lead,MeetingStatusChangeLog,StatusChangeLog, BasicActivityInformation,EmailTemplate, EmailSpecificFields, Meeting,LeadStatus,SMS
+from .serializers import QuotationDataSerializer,PermissionsSerializer,TextMessageSerializer,EmailAttachmentSerializer,LeadStatusSerializer,MeetingStatusserializer,UserSerializer,StatusChangeLogSerializer, MyTokenObtainPairSerializer, LeadSerializer, BasicActivityInformationSerializer,EmailTemplateSerializer, EmailSpecificFieldsSerializer, MeetingSerializer
 from rest_framework.decorators import api_view
 from rest_framework import viewsets
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -20,24 +20,20 @@ import requests
 from django.db.models import F, Value
 from django.utils.timezone import make_aware, utc
 import pandas as pd
+import pytz
 import io
 from .WelcomeMail import send_meeting_email, send_welcome_mail
 import logging
-
+from .models import Profile, UserSettings
+from .pagination import LeadPagination
 
 logger = logging.getLogger(__name__)
-
-class QuotationTemplateViewSet(viewsets.ModelViewSet):
-    queryset = QuotationTemplate.objects.all()
-    serializer_class = QuotationTemplateSerializer
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['id', 'name']
-    search_fields = ['name', 'description']
-    ordering_fields = ['updated_at','created_at']
 
 class QuotationDataViewSet(viewsets.ModelViewSet):
     queryset = QuotationData.objects.all()
     serializer_class = QuotationDataSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['organization','site_name']
 
 class LeadStatusViewSet(viewsets.ModelViewSet):
     queryset = LeadStatus.objects.all()
@@ -51,8 +47,11 @@ class LeadViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['id', 'email']
     search_fields = ['organization', 'contact_name']
-    ordering_fields = ['rating', 'win','created_at']
+    ordering_fields = ['rating','created_at']
 
+    # Set the custom pagination class for this viewset
+    pagination_class = LeadPagination 
+    
     def get_queryset(self):
         queryset = super().get_queryset()        
         # Custom filters from query parameters
@@ -164,15 +163,17 @@ class MeetingStatusChangeLogViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         meeting_instance = serializer.validated_data.get('meeting')
+        mailsend = serializer.validated_data.get('mail_sent')
         
-        # Ensure you get the ID correctly
         if meeting_instance:
             idd = meeting_instance.id
         else:
             raise ValueError("Meeting instance not found")
         try:
-            send_meeting_email(serializer.validated_data, idd)
-   
+            if mailsend:
+               print(serializer.validated_data)
+               send_meeting_email(serializer.validated_data, idd)
+               
         except Exception as e:
             print('Error sending email:', str(e))  # Log the specific error
             return Response({'error': 'Failed to send email'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -189,16 +190,15 @@ class MeetingViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        created_at = self.request.query_params.get('created_at', None)
-        new_status = self.request.query_params.get('new_status', None)
-
-        if created_at and new_status:
-            queryset = queryset.filter(
-                status_changes__created_at__startswith=created_at,
-                status_changes__new_status=new_status
-            )
-
+        new_statuses = self.request.query_params.get('new_status', None)
+    
+        if new_statuses:
+            statuses_list = new_statuses.split(',')
+            queryset = queryset.exclude(status_changes__new_status__in=statuses_list)
+    
         return queryset
+
+    
     
 class TextMessageViewSet(viewsets.ModelViewSet):
     queryset = TextMessage.objects.all()
@@ -528,6 +528,7 @@ class LeadTimelineupdated(APIView):
 
             # Sort the data by timestamp in descending order
             sorted_data = sorted(flattened_data, key=safe_timestamp, reverse=True)
+            
 
             return Response(sorted_data, status=status.HTTP_200_OK)
         except Exception as e:
@@ -539,11 +540,26 @@ class LoginView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-
+        
         try:
+            # Validate the serializer
             serializer.is_valid(raise_exception=True)
             user = User.objects.get(username=request.data['username'])
             refresh = RefreshToken.for_user(user)
+
+            # Retrieve the user's profile (if it exists)
+            try:
+                profile = user.profile
+            except Profile.DoesNotExist:
+                profile = None  # If the profile doesn't exist, set it to None
+
+            # Retrieve the user's settings (if it exists)
+            try:
+                user_settings = user.settings
+            except UserSettings.DoesNotExist:
+                user_settings = None  # If the settings don't exist, set it to None
+
+            # Build the response data
             response_data = {
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
@@ -551,14 +567,38 @@ class LoginView(TokenObtainPairView):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                
+                'profile': {
+                    'bio': profile.bio if profile else None,
+                    'phone': profile.phone if profile else None,
+                    'address': profile.address if profile else None,
+                    'profile_picture': profile.profile_picture.url if profile and profile.profile_picture else None,
+                } if profile else {},  # Default to empty dictionary if profile doesn't exist
+                'settings': {
+                    'theme_color': user_settings.theme_color if user_settings else '#FFFFFF',
+                    'language': user_settings.language if user_settings else 'en',
+                    'meeting_notification': user_settings.meeting_notification if user_settings else True,
+                    'self_browser_notification': user_settings.self_browser_notification if user_settings else True,
+                    'self_sound_notification': user_settings.self_sound_notification if user_settings else True,
+                    'welcome_mail': user_settings.welcome_mail if user_settings else False,
+                   
+                    'auto_refresh_duration': user_settings.auto_refresh_duration if user_settings else 300,
+                } if user_settings else {}  # Default to empty dictionary if settings don't exist
             }
+
             return Response(response_data, status=status.HTTP_200_OK)
+
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Profile.DoesNotExist:
+            return Response({'detail': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        except UserSettings.DoesNotExist:
+            return Response({'detail': 'User settings not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            # Catch any other unexpected error
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
-        
+from datetime import datetime , timezone      
         
 
 class LeadTimelineHistory(APIView):
@@ -603,10 +643,12 @@ class LeadTimelineHistory(APIView):
                 }
                 activity_data.append(activity_entry)
             '''
-
+            
+           
             # Fetch meetings and their status changes
             meetings = Meeting.objects.all().prefetch_related('status_changes')
             meeting_data = []
+            
             
             for meeting in meetings:
                 status_changes = meeting.status_changes.all()
@@ -616,11 +658,41 @@ class LeadTimelineHistory(APIView):
                     sorted_status_changes = sorted(status_changes, key=lambda x: x.created_at, reverse=True)
                     most_recent_change = sorted_status_changes[0]  # Get the first item in the reversed list
                     timestamp = most_recent_change.created_at
+                    #meeting_date =   # e.g., '2024-11-08'
+                    #start_time = meeting.start_time  # e.g., '00:00:00'
+
+                    meeting_date = meeting.meeting_date
+                    start_time = meeting.start_time
                     
+                    # Convert them to string (assuming they are datetime objects)
+                    meeting_date_str = meeting_date.strftime("%Y-%m-%d")  # Customize format as needed
+                    start_time_str = start_time.strftime("%H:%M:%S")      # Customize format as needed
+                
+                    
+                    # Combine date and time into a single string
+                    datetime_str = meeting_date_str + ' ' + start_time_str
+                    
+                    # Parse the combined string into a naive datetime object (without timezone)
+                    meeting_datetime = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
+                    
+                    # Convert the naive datetime to a timezone-aware datetime (UTC)
+                    utc_timezone = pytz.utc
+                    meeting_datetime_utc = pytz.utc.localize(meeting_datetime)
+                    
+                    # If you need to convert to a specific timezone (e.g., US Eastern Time):
+                    eastern_timezone = pytz.timezone('US/Eastern')
+                    meeting_datetime_local = meeting_datetime_utc.astimezone(eastern_timezone)
+                    
+                    # Format the datetime with timezone information
+                    formatted_with_timezone = meeting_datetime_local.strftime('%Y-%m-%d %H:%M:%S.') + f'{meeting_datetime_local.microsecond:06d}'
+                    
+  
+                    dt_object = datetime.fromisoformat(formatted_with_timezone)
+
                     meeting_entry = {
                         'type': 'Meeting',
                         'meeting_id': meeting.id,
-                        'timestamp': timestamp,
+                        'timestamp': dt_object,
                         'meeting_titles': meeting.meeting_title,
                         'meeting_description_text': meeting.meeting_description,
                         'meeting_attendees': meeting.attendees,
@@ -666,7 +738,7 @@ class LeadTimelineHistory(APIView):
 
             # Sort the data by timestamp in descending order
             sorted_data = sorted(flattened_data, key=safe_timestamp, reverse=True)
-
+            # Pagination setup
             return Response(sorted_data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

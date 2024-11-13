@@ -20,7 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import QuotationDataViewSet, QuotationTemplateViewSet,PermissionsViewSet, TextMessageViewSet,EmailAttachmentViewSet,EmailTemplateUpdateView,EmailTemplateViewSet, LeadViewSet,StatusChangeLogViewSet,LeadTimelineHistory,LeadTimelineupdated,LeadStatusViewSet,MeetingStatusChangeLogViewSet,BasicActivityInformationViewSet,leadtimeline,update_lead,PrintTimelineView, EmailSpecificFieldsViewSet, MeetingViewSet, LoginView
+from .views import QuotationDataViewSet,PermissionsViewSet, TextMessageViewSet,EmailAttachmentViewSet,EmailTemplateUpdateView,EmailTemplateViewSet, LeadViewSet,StatusChangeLogViewSet,LeadTimelineHistory,LeadTimelineupdated,LeadStatusViewSet,MeetingStatusChangeLogViewSet,BasicActivityInformationViewSet,leadtimeline,update_lead,PrintTimelineView, EmailSpecificFieldsViewSet, MeetingViewSet, LoginView
 
 router = DefaultRouter()
 router.register(r'leads', LeadViewSet)
@@ -35,7 +35,6 @@ router.register(r'email-attachment', EmailAttachmentViewSet)
 router.register(r'text-messages', TextMessageViewSet)
 router.register(r'permissions', PermissionsViewSet)
 router.register(r'quotation-data', QuotationDataViewSet, basename='quotation-data')
-router.register(r'quotation-templates', QuotationTemplateViewSet, basename='quotation-template')
 
 
 
@@ -47,7 +46,7 @@ urlpatterns = [
     path('timeline/', PrintTimelineView.as_view(), name='PrintTimelineView'),  
     path('timeline/<int:id>/', leadtimeline.as_view(), name='PrintTimelineView'),
     path('timelineu/<int:id>/',LeadTimelineupdated.as_view(), name="print"),
-    path('timelineh',LeadTimelineHistory.as_view(), name="history")
+    path('timelineh',LeadTimelineHistory.as_view(), name="history")  #calander in crm
 ]
 
 #status = models.CharField(max_length=20, choices=[('Planned', 'Planned'), ('In Progress', 'In Progress'), ('Completed', 'Completed'), ('Cancelled', 'Cancelled')], help_text="Status", default="Planned")

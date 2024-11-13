@@ -1,18 +1,37 @@
 from rest_framework import serializers
-from .models import QuotationTemplate,QuotationData,Permissions,TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, User, StatusChangeLog, LeadStatus, MeetingStatusChangeLog
+from .models import UserSettings,Profile,QuotationData,Permissions,TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, User, StatusChangeLog, LeadStatus, MeetingStatusChangeLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['bio', 'phone', 'address', 'profile_picture']  # Add other fields as needed
+
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        fields = [
+            'theme_color', 'language', 'meeting_notification', 
+            'self_browser_notification', 'self_sound_notification', 
+            'welcome_mail', 'auto_refresh_duration'
+        ]
+
+class UserSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)  # Nested ProfileSerializer
+    settings = UserSettingsSerializer(read_only=True)  # Nested UserSettingsSerializer
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'profile', 'settings'  # Include profile and settings in the response
+        ]
 
 
 class QuotationDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuotationData
-        fields = '__all__'  # Include all fields
-
-class QuotationTemplateSerializer(serializers.ModelSerializer):
-    quotation_data_entries =QuotationDataSerializer(many=True, required=False, read_only=True)
-    class Meta:
-        model = QuotationTemplate
         fields = '__all__'  # Include all fields
 
 class LeadStatusSerializer(serializers.ModelSerializer):
@@ -63,11 +82,6 @@ class MeetingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Meeting
         fields = '__all__'
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('id', 'username', 'email')
 
 class TextMessageSerializer(serializers.ModelSerializer):
     class Meta:

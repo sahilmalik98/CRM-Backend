@@ -2,7 +2,25 @@
 # crm_app/admin.py
 
 from django.contrib import admin
-from .models import Profile, Permissions, TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, StatusChangeLog, MeetingStatusChangeLog, LeadStatus
+from .models import UserSettings,Profile,Permissions, TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, StatusChangeLog, MeetingStatusChangeLog, LeadStatus
+
+
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'phone', 'email', 'company_name', 'position', 'created_at', 'updated_at')
+    search_fields = ('user__username', 'phone', 'email', 'company_name')
+    list_filter = ('created_at', 'updated_at')
+    #readonly_fields = ('user',)  # Make the user field read-only, since it's automatically set
+
+admin.site.register(Profile, ProfileAdmin)
+
+@admin.register(UserSettings)
+class UserSettingsAdmin(admin.ModelAdmin):
+    list_display = [
+        'user', 'theme_color', 'language', 
+        'meeting_notification', 'self_browser_notification', 'self_sound_notification', 
+        'welcome_mail', 'auto_refresh_duration'
+    ]
+    search_fields = ['user__username']
 
 class activityStatusChangeLog(admin.StackedInline):
     model = StatusChangeLog
@@ -61,4 +79,4 @@ class EmailSpecificFieldsAdmin(admin.ModelAdmin):
     
 @admin.register(EmailAttachment)
 class EmailAttachmentadmin(admin.ModelAdmin):
-    list_display = ('email','file')
+    list_display = ('email','name')

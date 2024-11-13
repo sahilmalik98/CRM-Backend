@@ -1,3 +1,8 @@
-from django.test import TestCase
+import os
+from azure.communication.email import EmailClient
 
-# Create your tests here.
+try:
+    # Quickstart code goes here.
+except Exception as ex:
+    print('Exception:')
+    print(ex)
