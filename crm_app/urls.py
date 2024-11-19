@@ -20,21 +20,23 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import QuotationDataViewSet,PermissionsViewSet, TextMessageViewSet,EmailAttachmentViewSet,EmailTemplateUpdateView,EmailTemplateViewSet, LeadViewSet,StatusChangeLogViewSet,LeadTimelineHistory,LeadTimelineupdated,LeadStatusViewSet,MeetingStatusChangeLogViewSet,BasicActivityInformationViewSet,leadtimeline,update_lead,PrintTimelineView, EmailSpecificFieldsViewSet, MeetingViewSet, LoginView
+from .views import UserSettings,ContactFormViewSet,QuotationDataViewSet,PermissionsViewSet, TextMessageViewSet,EmailAttachmentViewSet,EmailTemplateUpdateView,EmailTemplateViewSet, LeadViewSet,StatusChangeLogViewSet,LeadTimelineHistory,LeadTimelineupdated,LeadStatusViewSet,MeetingStatusChangeLogViewSet,BasicActivityInformationViewSet,leadtimeline,update_lead,PrintTimelineView, EmailSpecificFieldsViewSet, MeetingViewSet, LoginView
 
 router = DefaultRouter()
-router.register(r'leads', LeadViewSet)
+router.register(r'leads', LeadViewSet) #mail
 router.register(r'lead-status', LeadStatusViewSet)
 router.register(r'activities', BasicActivityInformationViewSet)
 router.register(r'email-details', EmailSpecificFieldsViewSet)
 router.register(r'meetings', MeetingViewSet)
 router.register(r'status-change-logs', StatusChangeLogViewSet)
-router.register(r'Meeting-Status-ChangeLog',MeetingStatusChangeLogViewSet)
+router.register(r'Meeting-Status-ChangeLog',MeetingStatusChangeLogViewSet) #mail
 router.register(r'email-template',EmailTemplateViewSet)
 router.register(r'email-attachment', EmailAttachmentViewSet)
 router.register(r'text-messages', TextMessageViewSet)
 router.register(r'permissions', PermissionsViewSet)
-router.register(r'quotation-data', QuotationDataViewSet, basename='quotation-data')
+router.register(r'form', ContactFormViewSet)
+router.register(r'quotation-data', QuotationDataViewSet)
+#router.register(r'setting', UserSettings)
 
 
 

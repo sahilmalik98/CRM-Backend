@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
+import secrets
+import string
 
 class Lead(models.Model):
     COLOR_CHOICES = [
@@ -332,43 +334,14 @@ from django.contrib.auth.models import User
 
 class UserSettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="settings")
-    
-    theme_color = models.CharField(
-        max_length=7,  # Hex color code length
-        blank=True,
-        null=True,
-        help_text="The user's preferred theme color (e.g., #FFFFFF for white)."
-    )    
-    # Language settings
-    language = models.CharField(
-        max_length=50, 
-        default='en', 
-        help_text="The preferred language for the user."
-    )
-    
-
-    meeting_notification = models.BooleanField(
-        default=True,
-        help_text="Whether the user wants to receive meeting notifications."
-    )
-    self_browser_notification = models.BooleanField(
-        default=True, 
-        help_text="Whether the user wants to receive browser notifications."
-    )
-    self_sound_notification = models.BooleanField(
-        default=True, 
-        help_text="Whether the user wants to receive sound notifications."
-    )
-    welcome_mail = models.BooleanField(
-        default=False,
-        help_text="Whether the user has received a welcome email."
-    )
-        
-    # Auto-refresh duration (in seconds)
-    auto_refresh_duration = models.PositiveIntegerField(
-        default=300,  # Default to 5 minutes
-        help_text="The duration (in seconds) for auto-refresh, default is 300 seconds (5 minutes)."
-    )
+    theme_color = models.CharField(max_length=7,blank=True,null=True,help_text="The user's preferred theme color (e.g., #FFFFFF for white).")    
+    language = models.CharField(max_length=50, default='en', help_text="The preferred language for the user.")
+    meeting_notification = models.BooleanField(default=True,help_text="Whether the user wants to receive meeting notifications.")
+    self_browser_notification = models.BooleanField(default=True, help_text="Whether the user wants to receive browser notifications.")
+    self_sound_notification = models.BooleanField(default=True, help_text="Whether the user wants to receive sound notifications.")
+    welcome_mail = models.BooleanField(default=False,help_text="Whether the user has received a welcome email." )
+    MailSignature = models.ImageField(upload_to='MailSignature/', blank=True, null=True, help_text="Mail Footer")
+    auto_refresh_duration = models.PositiveIntegerField( default=300, help_text="The duration (in seconds) for auto-refresh, default is 300 seconds (5 minutes).")
 
     def __str__(self):
         return f"Settings for {self.user.username}"
@@ -383,3 +356,58 @@ class UserSettings(models.Model):
     class Meta:
         verbose_name = 'User Settings'
         verbose_name_plural = 'User Settings'
+
+
+
+class ContactForm(models.Model):
+    Name = models.CharField(max_length=40, blank=True, help_text="Data ID")
+    url = models.CharField(max_length=8, unique=True, blank=True)
+    
+    Title = models.CharField(max_length=200, blank=True, help_text="Form title")
+    enable_Title = models.BooleanField(default=True, help_text="Enable Title field")
+    require_Title = models.BooleanField(default=False, help_text="Require Title field")
+    
+    Your_name = models.CharField(max_length=100, blank=True, help_text="Your name")
+    enable_Your_name = models.BooleanField(default=True, help_text="Enable Your name field")
+    require_Your_name = models.BooleanField(default=False, help_text="Require Your name field")
+    
+    Email = models.CharField(max_length=50, blank=True, help_text="Your email")
+    enable_Email = models.BooleanField(default=True, help_text="Enable Email field")
+    require_Email = models.BooleanField(default=False, help_text="Require Email field")
+    
+    Phone_number = models.CharField(max_length=50, blank=True, default='', help_text="Your phone number")
+    enable_Phone_number = models.BooleanField(default=True, help_text="Enable Phone number field")
+    require_Phone_number = models.BooleanField(default=False, help_text="Require Phone number field")
+
+    Organization = models.CharField(max_length=50, blank=True, help_text="Your organization")
+    enable_Organization = models.BooleanField(default=True, help_text="Enable Organization field")
+    require_Organization = models.BooleanField(default=False, help_text="Require Organization field")
+    
+    location = models.CharField(max_length=50, blank=True, help_text="Subject")
+    enable_location = models.BooleanField(default=True, help_text="Enable Subject field")
+    require_location = models.BooleanField(default=False, help_text="Require Subject field")
+    
+    Message = models.CharField(max_length=50, blank=True, help_text="Message")
+    enable_Message = models.BooleanField(default=True, help_text="Enable Message field")
+    require_Message = models.BooleanField(default=False, help_text="Require Message field")
+
+    inline_Label = models.BooleanField(default=False, help_text="Inline Label of Input Fields")
+
+    style = models.TextField(blank=True, default='', help_text="CSS styling")
+    Created_at = models.DateTimeField(auto_now_add=True, help_text="Creation timestamp")
+    
+    def save(self, *args, **kwargs):
+        if not self.url:
+            self.url = self.generate_random_url()
+        super().save(*args, **kwargs)
+
+    def generate_random_url(self):
+        # Generate a random string with a combination of uppercase letters and digits
+        characters = string.ascii_letters + string.digits
+        random_url = ''.join(secrets.choice(characters) for _ in range(8))
+        return random_url
+    
+    def __str__(self):
+        return self.Subject
+    class Meta:
+        verbose_name_plural = "Contact Form"

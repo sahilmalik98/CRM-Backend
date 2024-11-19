@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserSettings,Profile,QuotationData,Permissions,TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, User, StatusChangeLog, LeadStatus, MeetingStatusChangeLog
+from .models import ContactForm,UserSettings,Profile,QuotationData,Permissions,TextMessage,EmailAttachment,EmailTemplate,Lead, BasicActivityInformation, EmailSpecificFields, Meeting, User, StatusChangeLog, LeadStatus, MeetingStatusChangeLog
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 
@@ -28,6 +28,10 @@ class UserSerializer(serializers.ModelSerializer):
             'profile', 'settings'  # Include profile and settings in the response
         ]
 
+class ContactFormserializers(serializers.ModelSerializer):
+    class Meta:
+        model = ContactForm
+        fields = '__all__'
 
 class QuotationDataSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,6 +48,7 @@ class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = '__all__'
+    
         
 class StatusChangeLogSerializer(serializers.ModelSerializer):
     class Meta:

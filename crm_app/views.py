@@ -3,8 +3,8 @@ from django.http import HttpResponse
 from rest_framework import generics
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from .models import  QuotationData,Permissions,TextMessage,EmailAttachment,Lead,MeetingStatusChangeLog,StatusChangeLog, BasicActivityInformation,EmailTemplate, EmailSpecificFields, Meeting,LeadStatus,SMS
-from .serializers import QuotationDataSerializer,PermissionsSerializer,TextMessageSerializer,EmailAttachmentSerializer,LeadStatusSerializer,MeetingStatusserializer,UserSerializer,StatusChangeLogSerializer, MyTokenObtainPairSerializer, LeadSerializer, BasicActivityInformationSerializer,EmailTemplateSerializer, EmailSpecificFieldsSerializer, MeetingSerializer
+from .models import  ContactForm,QuotationData,Permissions,TextMessage,EmailAttachment,Lead,MeetingStatusChangeLog,StatusChangeLog, BasicActivityInformation,EmailTemplate, EmailSpecificFields, Meeting,LeadStatus,SMS
+from .serializers import ContactFormserializers,QuotationDataSerializer,PermissionsSerializer,TextMessageSerializer,EmailAttachmentSerializer,LeadStatusSerializer,MeetingStatusserializer,UserSerializer,StatusChangeLogSerializer, MyTokenObtainPairSerializer, LeadSerializer, BasicActivityInformationSerializer,EmailTemplateSerializer, EmailSpecificFieldsSerializer, MeetingSerializer
 from rest_framework.decorators import api_view
 from rest_framework import viewsets
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -41,13 +41,21 @@ class LeadStatusViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['lead',]
 
+class ContactFormViewSet(viewsets.ModelViewSet):
+    queryset = ContactForm.objects.all()
+    serializer_class = ContactFormserializers
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['id', 'url','Name']
+    search_fields = ['Title','Name']
+    ordering_fields = ['Name','created_at']
+
 class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all()
     serializer_class = LeadSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['id', 'email']
-    search_fields = ['organization', 'contact_name']
-    ordering_fields = ['rating','created_at']
+    search_fields = ['organization', 'contact_name','lead_quality','source','state']
+    ordering_fields = ['rating','created_at','lead_quality','source','state']
 
     # Set the custom pagination class for this viewset
     pagination_class = LeadPagination 
@@ -494,7 +502,8 @@ class LeadTimelineupdated(APIView):
                         'timestamp': change.changed_at,
                         'previous_status': change.old_status,
                         'current_status': change.new_status,
-                        'status_feedback': change.feedback
+                        'status_feedback': change.feedback,
+                        'changed_by': change.changed_by,
                     }
                     for change in status_changes
                 ],
@@ -533,6 +542,7 @@ class LeadTimelineupdated(APIView):
             return Response(sorted_data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
     
 class LoginView(TokenObtainPairView):
@@ -580,7 +590,8 @@ class LoginView(TokenObtainPairView):
                     'self_browser_notification': user_settings.self_browser_notification if user_settings else True,
                     'self_sound_notification': user_settings.self_sound_notification if user_settings else True,
                     'welcome_mail': user_settings.welcome_mail if user_settings else False,
-                   
+                    'MailSignature' : user_settings.MailSignature.url if user_settings.MailSignature else None,
+
                     'auto_refresh_duration': user_settings.auto_refresh_duration if user_settings else 300,
                 } if user_settings else {}  # Default to empty dictionary if settings don't exist
             }
@@ -667,7 +678,6 @@ class LeadTimelineHistory(APIView):
                     # Convert them to string (assuming they are datetime objects)
                     meeting_date_str = meeting_date.strftime("%Y-%m-%d")  # Customize format as needed
                     start_time_str = start_time.strftime("%H:%M:%S")      # Customize format as needed
-                
                     
                     # Combine date and time into a single string
                     datetime_str = meeting_date_str + ' ' + start_time_str
@@ -675,17 +685,19 @@ class LeadTimelineHistory(APIView):
                     # Parse the combined string into a naive datetime object (without timezone)
                     meeting_datetime = datetime.strptime(datetime_str, '%Y-%m-%d %H:%M:%S')
                     
+                    
                     # Convert the naive datetime to a timezone-aware datetime (UTC)
                     utc_timezone = pytz.utc
                     meeting_datetime_utc = pytz.utc.localize(meeting_datetime)
                     
                     # If you need to convert to a specific timezone (e.g., US Eastern Time):
-                    eastern_timezone = pytz.timezone('US/Eastern')
+                    eastern_timezone = pytz.timezone('Asia/Kolkata')
                     meeting_datetime_local = meeting_datetime_utc.astimezone(eastern_timezone)
+                    # removing this give ERROR
                     
+                    print(meeting_datetime_local)
                     # Format the datetime with timezone information
-                    formatted_with_timezone = meeting_datetime_local.strftime('%Y-%m-%d %H:%M:%S.') + f'{meeting_datetime_local.microsecond:06d}'
-                    
+                    formatted_with_timezone = meeting_datetime_utc.strftime('%Y-%m-%d %H:%M:%S.') + f'{meeting_datetime_utc.microsecond:06d}'
   
                     dt_object = datetime.fromisoformat(formatted_with_timezone)
 
